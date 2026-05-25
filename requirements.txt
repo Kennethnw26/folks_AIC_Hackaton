@@ -1,0 +1,17 @@
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+sqlmodel==0.0.22
+pydantic==2.9.2
+pydantic-settings==2.6.1
+httpx==0.27.2
+openai==1.54.4
+scipy==1.14.1
+rapidfuzz==3.10.1 
+sentence-transformers==3.3.1
+python-dotenv==1.0.1
+pillow==11.0.0
+python-multipart==0.0.17
+# Testing
+pytest>=8.0
+respx>=0.21
+socksio>=1.0  # required by httpx when SOCKS proxies are configured in the environment
