@@ -26,7 +26,7 @@ def fx_clean_cache(monkeypatch: pytest.MonkeyPatch):
     """
     from fx import rates  # noqa: PLC0415
 
-    tmp_dir = Path(tempfile.mkdtemp(prefix="treasury-test-fx-", dir="/tmp"))
+    tmp_dir = Path(tempfile.mkdtemp(prefix="treasury-test-fx-"))
     fake_cache = tmp_dir / "fx_rates.json"
     monkeypatch.setattr(rates, "_CACHE_PATH", fake_cache)
     monkeypatch.setattr(rates, "_cache", {})

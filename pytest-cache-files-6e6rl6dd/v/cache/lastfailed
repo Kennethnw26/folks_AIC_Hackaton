@@ -1,6 +1,0 @@
-{
-  "tests/test_ocr.py::test_extract_payment_proof_happy_path": true,
-  "tests/test_ocr.py::test_extract_payment_proof_all_models_fail": true,
-  "tests/test_fx.py::test_get_rate_historical_success": true,
-  "tests/test_fx.py::test_get_rate_fallback_to_latest_on_404": true
-}
