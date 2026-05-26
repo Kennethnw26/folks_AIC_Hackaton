@@ -1,58 +1,75 @@
 # Global Treasury Agent
 
-FastAPI service that reconciles cross-border payments to invoices, looks up FX
-rates, screens for fraud, and exposes a WhatsApp ops channel. The reasoning
-core is Hermes 4 (405B) served through the Chutes inference API, called via
-the `openai` Python client with a custom `base_url`.
+WhatsApp AI agent for cross-border payment reconciliation and BEC fraud detection. A finance ops team sends a payment slip image via WhatsApp; the agent OCRs it, matches it to an open invoice, scores fraud risk, and replies with a confirmation prompt — all in under 60 seconds.
 
 ## Stack
 
 - **API:** FastAPI + Uvicorn
-- **Persistence:** SQLite via SQLModel (Pydantic v2 underneath)
-- **LLM:** Hermes 4 on Chutes, accessed with the `openai` SDK
-- **FX:** Frankfurter (no API key required)
-- **Similarity / fuzzy match:** `sentence-transformers`, `rapidfuzz`, `scipy`
+- **Persistence:** SQLite via SQLModel (Pydantic v2)
+- **Vision / OCR:** `google/gemma-4-31B-turbo` on Chutes (payment slip extraction)
+- **LLM:** `deepseek-ai/DeepSeek-V3.2` on Chutes (matching arbitration + fraud narrative)
+- **FX:** Frankfurter open API (no key required)
+- **Fuzzy match:** `rapidfuzz`
 - **Channel:** WhatsApp Cloud API (Meta Graph)
-- **OCR / vision:** Pillow + Hermes vision (wired in a later prompt)
 
 ## Project layout
 
 ```
-treasury-agent/
-  api/         # HTTP routers (/reconcile, /invoices, ...)
-  agent/       # Hermes 4 client + prompts + tool dispatch
-  db/          # SQLModel models, engine, seeds
-  fraud/       # FlaggedAccount lookups, signal extraction
-  ocr/         # payment-slip OCR + field extraction
-  fx/          # Frankfurter client + fee inference
-  whatsapp/    # inbound dispatch + outbound send
-  exports/     # CSV / Excel batch exports
-  demo/        # scripted demo flows
-  tests/       # pytest suite
-  main.py
-  requirements.txt
-  .env.example
-  README.md
+.
+├── main.py               # FastAPI entry point + dev simulation endpoints
+├── orchestrator.py       # WhatsApp message router (image / button / text)
+├── config.py             # Pydantic settings (reads .env)
+├── seed.py               # DB seed — tenants, invoices, vendor domains
+├── agents/
+│   ├── matching_agent.py # Invoice matching with LLM arbitration
+│   └── fraud_agent.py    # BEC fraud scoring (urgency, domain, beneficiary)
+├── tools/
+│   ├── ocr.py            # Vision model call → PaymentProof struct
+│   ├── matcher.py        # Deterministic DET scoring
+│   ├── composer.py       # WhatsApp reply builder
+│   ├── fx.py             # FX rate lookup + normalisation
+│   ├── chutes_client.py  # Chutes API wrapper (text + vision)
+│   └── whatsapp_client.py# Meta Graph API send/receive
+├── webhooks/
+│   └── whatsapp.py       # Inbound webhook router
+├── schemas/
+│   └── llm_responses.py  # Pydantic models for LLM JSON outputs
+├── db/
+│   ├── models.py         # SQLModel table definitions
+│   └── session.py        # Engine + table creation
+├── tests/
+│   ├── conftest.py
+│   └── test_health.py
+├── test_simulate.py      # HTTP-based end-to-end test (requires server running)
+└── test_whatsapp_local.py# Full orchestrator test without Meta network
 ```
 
 ## Setup
 
 ```bash
 # 1. Create and activate a virtualenv
-python -m venv .venv
-source .venv/bin/activate          # macOS / Linux
-# .venv\Scripts\activate           # Windows PowerShell
+python -m venv venv
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # macOS / Linux
 
-# 2. Install pinned dependencies
+# 2. Install dependencies
 pip install -r requirements.txt
 
 # 3. Configure environment
 cp .env.example .env
-# Edit .env and fill in CHUTES_API_KEY, WHATSAPP_* values.
-
-# 4. Initialise the SQLite database and seed minimal data
-python -m db.seed_min
+# Fill in CHUTES_API_KEY and META_* values
 ```
+
+## Environment variables
+
+| Variable | Description |
+|---|---|
+| `CHUTES_API_KEY` | Chutes.ai bearer token |
+| `META_ACCESS_TOKEN` | WhatsApp Cloud API token |
+| `META_PHONE_ID` | WhatsApp sender phone number ID |
+| `META_VERIFY_TOKEN` | Webhook verification token |
+| `META_APP_SECRET` | App secret for signature verification |
+| `ENV` | Set to `dev` to enable simulation endpoints |
 
 ## Run
 
@@ -66,31 +83,30 @@ Health check:
 curl http://localhost:8000/health
 ```
 
-## Expose locally for WhatsApp webhooks
+## Local demo (no WhatsApp account needed)
 
-The Meta Cloud API needs a public HTTPS URL. Use ngrok:
+```bash
+# Full pipeline test via HTTP endpoint
+python test_simulate.py
+
+# Full orchestrator test (patches Meta network calls)
+python test_whatsapp_local.py
+```
+
+## WhatsApp webhook (real device)
+
+Use ngrok to expose the local server:
 
 ```bash
 ngrok http 8000
 ```
 
-Take the `https://<subdomain>.ngrok-free.app` URL ngrok prints and configure
-it in the Meta App dashboard:
-
+Set in Meta App Dashboard:
 - **Callback URL:** `https://<subdomain>.ngrok-free.app/webhook/whatsapp`
-- **Verify token:** the value you set as `WHATSAPP_VERIFY_TOKEN` in `.env`
-
-Meta will hit `GET /webhook/whatsapp` once with `hub.mode=subscribe` and the
-verify token; `main.py` echoes the challenge back when the token matches.
+- **Verify token:** value of `META_VERIFY_TOKEN` in `.env`
 
 ## Tests
 
 ```bash
 pytest -q
 ```
-
-## Environment variables
-
-See `.env.example`. Required keys: `CHUTES_API_KEY`, `WHATSAPP_TOKEN`,
-`WHATSAPP_PHONE_ID`, `WHATSAPP_VERIFY_TOKEN`, `FRANKFURTER_BASE`,
-`DATABASE_URL`.

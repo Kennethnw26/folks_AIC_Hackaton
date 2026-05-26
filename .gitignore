@@ -40,6 +40,7 @@ treasury.db
 .mypy_cache/
 .ruff_cache/
 .cache/
+fx_cache/
 
 # Local uploads / OCR scratch
 ocr/uploads/
