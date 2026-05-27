@@ -4,7 +4,7 @@ import hashlib
 import hmac
 import logging
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 
 from config import settings
