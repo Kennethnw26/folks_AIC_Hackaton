@@ -150,18 +150,6 @@ Send any payment receipt image to the test number (`+1 555 644 8023`) from your 
 
 ---
 
-## Local Testing (No WhatsApp Required)
-
-```bash
-# Option 1: Full pipeline via HTTP (server must be running)
-python test_simulate.py
-
-# Option 2: Full orchestrator test (no Meta network needed)
-python test_whatsapp_local.py
-```
-
----
-
 ## Demo Scenarios
 
 | Receipt | Expected Result |
