@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from math import prod
 
 import networkx as nx
@@ -28,14 +28,16 @@ class FraudAssessment:
 # ---------------------------------------------------------------------------
 # Signal 1: new beneficiary
 # ---------------------------------------------------------------------------
-def _signal_new_beneficiary(account_number: str, tenant_id: int, session: Session) -> float:
+def _signal_new_beneficiary(account_number: str, beneficiary_name: str, tenant_id: int, session: Session) -> float:
     existing = session.exec(
         select(BeneficiaryHistory).where(
             BeneficiaryHistory.tenant_id == tenant_id,
-            BeneficiaryHistory.account_number == account_number,
         )
-    ).first()
-    return 0.0 if existing else 1.0
+    ).all()
+    for e in existing:
+        if e.account_number == account_number or e.beneficiary_name.lower() == beneficiary_name.lower():
+            return 0.0
+    return 1.0
 
 
 # ---------------------------------------------------------------------------
@@ -100,6 +102,8 @@ def _signal_trust_graph(beneficiary_name: str, tenant_id: int, session: Session)
 # Signal 4: urgency anomaly (LLM)
 # ---------------------------------------------------------------------------
 async def _signal_urgency_anomaly(raw_text: str, llm_budget: list[int]) -> float:
+    if not raw_text or len(raw_text.strip()) < 10:
+        return 0.0
     if llm_budget[0] >= 3:
         return 0.0
 
@@ -139,7 +143,7 @@ async def run(
     beneficiary_name = proof_dict.get("beneficiary_name", "")
 
     s1, s2, s3, s4 = await asyncio.gather(
-        asyncio.to_thread(_signal_new_beneficiary, account_number, tenant_id, session),
+        asyncio.to_thread(_signal_new_beneficiary, account_number, beneficiary_name, tenant_id, session),
         asyncio.to_thread(_signal_domain_spoof, raw_text, tenant_id, session),
         asyncio.to_thread(_signal_trust_graph, beneficiary_name, tenant_id, session),
         _signal_urgency_anomaly(raw_text, llm_budget),

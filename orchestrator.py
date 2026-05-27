@@ -97,8 +97,8 @@ async def _run_ocr_pipeline(envelope: dict, sender: str, session: Session) -> No
         fraud_agent.run(proof_dict, "", tenant_id, session, llm_budget),
     )
 
-    if match_result is None:
-        await send_text(sender, "No open invoices found to match against.")
+    if match_result is None or match_result.score < 0.25:
+        await send_text(sender, "No matching invoice found for this payment. Please verify the receipt details or contact your finance team.")
         return
 
     # Persist payment

@@ -12,9 +12,14 @@ def build_reply(match: MatchResult, fraud: FraudAssessment) -> dict:
     else:
         risk_emoji, risk_label = "\U0001f534", "HIGH"
 
+    myr_line = ""
+    if match.payment_currency and match.payment_currency != "MYR" and match.payment_amount_myr:
+        myr_line = f"\n≈ RM {match.payment_amount_myr:,.2f} MYR"
+
     body = (
         f"\U0001f4b3 Match: Invoice #{match.invoice_number}\n"
-        f"Amount: {match.amount} {match.currency}\n"
+        f"Payment: {match.payment_amount} {match.payment_currency}{myr_line}\n"
+        f"Invoice: {match.amount} {match.currency}\n"
         f"Confidence: {int(match.score * 100)}%\n\n"
         f"{risk_emoji} Risk: {risk_label}"
     )

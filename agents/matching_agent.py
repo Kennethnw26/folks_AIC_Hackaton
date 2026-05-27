@@ -27,6 +27,9 @@ class MatchResult:
     currency: str
     score: float
     source: str  # "deterministic" | "llm"
+    payment_amount: float = 0.0
+    payment_currency: str = ""
+    payment_amount_myr: float = 0.0
 
 
 async def run(proof_dict: dict, tenant_id: int, session: Session, llm_budget: list[int]) -> MatchResult | None:
@@ -70,6 +73,9 @@ async def run(proof_dict: dict, tenant_id: int, session: Session, llm_budget: li
     candidates.sort(key=lambda c: c.det_score, reverse=True)
     top = candidates[0]
 
+    _pay_amount = proof_dict["amount"]
+    _pay_currency = proof_dict["currency"]
+
     if top.det_score >= _DET_THRESHOLD:
         return MatchResult(
             invoice_id=top.invoice_id,
@@ -78,6 +84,9 @@ async def run(proof_dict: dict, tenant_id: int, session: Session, llm_budget: li
             currency=top.currency,
             score=top.det_score,
             source="deterministic",
+            payment_amount=_pay_amount,
+            payment_currency=_pay_currency,
+            payment_amount_myr=p_norm,
         )
 
     # LLM arbitration
@@ -89,6 +98,9 @@ async def run(proof_dict: dict, tenant_id: int, session: Session, llm_budget: li
             currency=top.currency,
             score=top.det_score,
             source="deterministic_budget_exhausted",
+            payment_amount=_pay_amount,
+            payment_currency=_pay_currency,
+            payment_amount_myr=p_norm,
         )
 
     llm_budget[0] += 1
@@ -144,4 +156,7 @@ async def run(proof_dict: dict, tenant_id: int, session: Session, llm_budget: li
         currency=best_candidate.currency,
         score=best_final,
         source="llm",
+        payment_amount=_pay_amount,
+        payment_currency=_pay_currency,
+        payment_amount_myr=p_norm,
     )
